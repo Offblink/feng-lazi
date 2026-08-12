@@ -6,7 +6,6 @@ import os
 from datetime import date, datetime
 
 import pytest
-from PyQt6.QtCore import QLockFile
 
 from app import TrayApp
 
@@ -42,16 +41,12 @@ def running_app(qtbot, tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "datetime", FakeDatetime)
     monkeypatch.setattr(app_module, "date", FakeDate)
 
-    lock = QLockFile(str(tmp_path / "l.lock"))
-    lock.setStaleLockTime(0)
-    assert lock.tryLock(0)
-    w = TrayApp(lock, db_path=str(tmp_path / "usage.db"))
+    w = TrayApp(db_path=str(tmp_path / "usage.db"))
     w.start()
     qtbot.addWidget(w)
     yield w, clock
     w._tick_timer.stop()
     w.tray_icon.hide()
-    lock.unlock()
 
 
 def advance(clock, seconds):

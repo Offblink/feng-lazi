@@ -42,7 +42,7 @@ python main.pyw
 - **重名窗口处理**：以 exe **完整路径**为身份主键 —— 同名但不同目录的程序各自统计互不混淆；同一应用开多个窗口（如多个浏览器标签）合并为一条；不用窗口标题做身份（标题随内容变化会碎片化统计）
 - 排除: 桌面(Progman/WorkerW)、任务栏托盘(Shell_TrayWnd)、锁屏(LogonUI)、dwm、搜索、系统外壳进程、旧式 UWP 宿主(ApplicationFrameHost)、本程序自身
 - 提权进程读取路径失败时自动回退到设备路径 + 卷映射
-- 单实例 (QLockFile)，防双开重复计时
+- 单实例 (QSharedMemory + QLocalServer, 参照 Get It): 重复启动不再弹提示，直接**唤醒已有实例的统计窗口**后自身退出
 
 ## 数据
 

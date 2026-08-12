@@ -1,23 +1,26 @@
 """TrayApp 托盘生命周期测试 (qtbot)."""
+from uuid import uuid4
+
 import pytest
-from PyQt6.QtCore import QLockFile
+from PyQt6.QtCore import QSharedMemory
+from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from app import TrayApp, make_tray_icon
 
 
+def _ipc_name():
+    return f"tray-test-{uuid4().hex}"   # 每测试唯一, 避免跨测试共享内存冲突
+
+
 @pytest.fixture
 def tray_app(qtbot, tmp_path):
-    lock = QLockFile(str(tmp_path / "test.lock"))
-    lock.setStaleLockTime(0)
-    assert lock.tryLock(0)
-    w = TrayApp(lock, db_path=str(tmp_path / "usage.db"))
+    w = TrayApp(db_path=str(tmp_path / "usage.db"), ipc_name=_ipc_name())
     w.start()
     qtbot.addWidget(w)
     yield w
     w._tick_timer.stop()
     w.tray_icon.hide()
-    lock.unlock()
 
 
 def test_start_hides_window(tray_app):
@@ -64,6 +67,35 @@ def test_quit_hides_tray(tray_app, monkeypatch):
     assert not tray_app.tray_icon.isVisible()
 
 
+def test_second_instance_wakes_window(qtbot, tmp_path):
+    """第二实例经 QLocalServer 唤醒: 窗口从隐藏变为可见."""
+    name = _ipc_name()
+    w = TrayApp(db_path=str(tmp_path / "usage.db"), ipc_name=name)
+    w.start()
+    qtbot.addWidget(w)
+    assert not w.isVisible()
+
+    sock = QLocalSocket()                  # 模拟第二实例的连接
+    sock.connectToServer(name)
+    assert sock.waitForConnected(1000)
+    sock.disconnectFromServer()
+
+    qtbot.waitUntil(w.isVisible, timeout=2000)
+    w._tick_timer.stop()
+    w.tray_icon.hide()
+
+
+def test_shared_memory_single_instance():
+    """QSharedMemory 判定: 第一实例持有, 第二实例被识别."""
+    name = f"sm-test-{uuid4().hex}"
+    first = QSharedMemory(name)
+    assert not first.attach()
+    assert first.create(1)                 # 第一实例成功持有
+    second = QSharedMemory(name)
+    assert second.attach() or not second.create(1)   # 第二实例被识别
+    first.detach()
+
+
 def test_startup_notification_calls_show_message(tray_app, monkeypatch):
     calls = []
     monkeypatch.setattr(tray_app.tray_icon, "showMessage",
@@ -76,14 +108,3 @@ def test_startup_notification_calls_show_message(tray_app, monkeypatch):
 def test_make_tray_icon_draws():
     icon = make_tray_icon()
     assert not icon.isNull()
-
-
-def test_second_instance_blocked(tmp_path):
-    path = str(tmp_path / "u.lock")
-    lock1 = QLockFile(path)
-    lock1.setStaleLockTime(0)
-    assert lock1.tryLock(0)
-    lock2 = QLockFile(path)
-    lock2.setStaleLockTime(0)
-    assert not lock2.tryLock(0)
-    lock1.unlock()

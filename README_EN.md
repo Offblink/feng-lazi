@@ -42,7 +42,7 @@ The tray tooltip shows in real time: current app + today's total.
 - **Duplicate names**: identity is the exe **full path** — same-named programs in different directories are tracked separately; multiple windows of one app (e.g. browser tabs) merge into one entry; window titles are never used as identity (they change with content and would fragment the stats)
 - Excluded: desktop (Progman/WorkerW), taskbar tray (Shell_TrayWnd), lock screen (LogonUI), dwm, search, system shell processes, legacy UWP host (ApplicationFrameHost), and the app itself
 - Falls back to device path + volume mapping when an elevated process denies path reads
-- Single instance (QLockFile) to prevent double counting from a second launch
+- Single instance (QSharedMemory + QLocalServer, following Get It): a second launch does not show a dialog, it **wakes the existing window** and exits itself
 
 ## Data
 

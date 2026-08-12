@@ -11,10 +11,11 @@ import os
 import sys
 from datetime import date, datetime
 
-from PyQt6.QtCore import Qt, QLockFile, QTimer
+from PyQt6.QtCore import Qt, QSharedMemory, QTimer
 from PyQt6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QMessageBox, QMenu, QSystemTrayIcon, QTabWidget,
+    QApplication, QMainWindow, QMenu, QSystemTrayIcon, QTabWidget,
 )
 
 import foreground
@@ -27,6 +28,8 @@ from widgets.stats_view import StatsView
 APP_NAME = "UsageTracker"
 APP_NAME_ZH = "凤辣子"   # 应用中文名 (王熙凤绰号)
 FLUSH_EVERY_TICKS = 10   # 每 10 秒定期入库
+APP_IPC_SINGLETON = "FengLaziSingleton"   # QSharedMemory 单例锁
+APP_IPC_SERVER = "FengLaziIPC"            # QLocalServer 唤醒管道
 
 
 def app_data_dir() -> str:
@@ -71,10 +74,10 @@ def _draw_fallback_icon() -> QIcon:
 class TrayApp(QMainWindow):
     """主窗口 + 系统托盘 (常驻后台) + 前台跟踪."""
 
-    def __init__(self, lock: QLockFile, db_path: str | None = None):
+    def __init__(self, db_path: str | None = None, ipc_name: str | None = None):
         super().__init__()
-        self._lock = lock
         self._db_path = db_path or os.path.join(app_data_dir(), "usage.db")
+        self._ipc_name = ipc_name or APP_IPC_SERVER
 
         self._store: Store = Store(self._db_path)
         self._tracker: Tracker | None = None
@@ -89,6 +92,14 @@ class TrayApp(QMainWindow):
 
         self._create_central_widget()
         self._create_tray_icon()
+        self._create_ipc_server()
+
+    # ---------- 单实例唤醒 (参照 Get It) ----------
+    def _create_ipc_server(self):
+        """第二实例启动时经 QLocalServer 唤醒本窗口."""
+        self._ipc_server = QLocalServer(self)
+        self._ipc_server.listen(self._ipc_name)
+        self._ipc_server.newConnection.connect(self._restore_from_tray)
 
     # ---------- 中央统计视图 ----------
     def _create_central_widget(self):
@@ -228,6 +239,14 @@ class TrayApp(QMainWindow):
         self.hide()
 
 
+def _wake_existing_instance() -> None:
+    """已有实例在跑: 经 QLocalServer 唤醒其窗口, 本实例静默退出."""
+    sock = QLocalSocket()
+    sock.connectToServer(APP_IPC_SERVER)
+    if sock.waitForConnected(500):
+        sock.disconnectFromServer()
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
@@ -237,18 +256,16 @@ def main() -> int:
     from theme import apply as apply_theme
     apply_theme(app)
 
-    # 单实例: 防双开重复计时
-    lock = QLockFile(os.path.join(app_data_dir(), "usage_tracker.lock"))
-    lock.setStaleLockTime(0)
-    if not lock.tryLock(100):
-        QMessageBox.information(None, APP_NAME_ZH, "程序已在运行，请到系统托盘查看。")
+    # 单实例 (参照 Get It): QSharedMemory 判定, 第二实例唤醒现有窗口后退出
+    shared = QSharedMemory(APP_IPC_SINGLETON)
+    if shared.attach() or not shared.create(1):
+        _wake_existing_instance()
         return 0
 
-    window = TrayApp(lock)
+    window = TrayApp()
     window.start()
     window.show_startup_notification()
     code = app.exec()
-    lock.unlock()
     return code
 
 
