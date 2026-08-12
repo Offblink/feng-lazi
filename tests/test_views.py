@@ -98,6 +98,15 @@ def test_gantt_shows_rows_and_spans(store, qtbot):
     assert view.gantt_card.isVisible()
 
 
+def test_gantt_coordinate_conversion():
+    g = TimeGantt()
+    assert g._row_at(30.5) == 1        # 30.5 // 26 → int
+    g.resize(502, 100)                  # plot_w = 502 - 150 = 352
+    assert g._hour_at(151.0) == 0
+    assert g._hour_at(150.0) == 0
+    assert g._hour_at(500.0) == 23      # 越界钳制
+
+
 def test_gantt_hidden_when_no_data(store, qtbot):
     view = StatsView(store)
     qtbot.addWidget(view)

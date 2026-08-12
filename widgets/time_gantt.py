@@ -55,8 +55,8 @@ class TimeGantt(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(420, len(self._rows) * self.ROW_H + self.AXIS_H + 4)
 
-    def _row_at(self, y: int) -> int:
-        return y // self.ROW_H
+    def _row_at(self, y: float) -> int:
+        return int(y) // self.ROW_H
 
     def _hour_at(self, x: int) -> int:
         plot_w = max(self.width() - self.NAME_W, 1)
