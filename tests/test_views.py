@@ -1,4 +1,4 @@
-"""统计视图测试 (qtbot): 今日数据渲染 / 空状态 / 近7天 / 展示名 / 时长格式."""
+"""统计视图测试 (qtbot): 今日数据渲染 / 空状态 / 近7天 / 时间分布 / 展示名."""
 from datetime import date, timedelta
 
 import pytest
@@ -8,6 +8,7 @@ from store import Store
 from widgets.app_row import AppRow, display_name
 from widgets.format import format_duration
 from widgets.history_view import AppLine, DayBlock, HistoryView
+from widgets.hour_bars import HourBars, HOURS
 from widgets.stats_view import StatsView
 
 
@@ -18,11 +19,15 @@ def store(tmp_path):
     s.close()
 
 
+def rec(d, h, name, seconds, path=None):
+    return Record(d, h, path or f"C:/Apps/{name}", name, seconds)
+
+
 def test_stats_view_shows_total_and_rows(store, qtbot):
     today = date.today().isoformat()
     store.add_records([
-        Record(today, "C:/Apps/A.exe", "a.exe", 3600),
-        Record(today, "C:/Apps/B.exe", "b.exe", 600),
+        rec(today, 10, "a.exe", 3600),
+        rec(today, 14, "b.exe", 600),
     ])
     view = StatsView(store)
     qtbot.addWidget(view)
@@ -40,7 +45,7 @@ def test_stats_view_empty_state(store, qtbot):
 
 def test_stats_view_many_rows_scrollable(store, qtbot):
     today = date.today().isoformat()
-    store.add_records([Record(today, f"C:/Apps/App{i}.exe", f"app{i}.exe", (i + 1) * 60)
+    store.add_records([rec(today, 10, f"app{i}.exe", (i + 1) * 60)
                        for i in range(30)])
     view = StatsView(store)
     qtbot.addWidget(view)
@@ -56,10 +61,33 @@ def test_stats_view_refresh_picks_up_new_records(store, qtbot):
     view = StatsView(store)
     qtbot.addWidget(view)
     assert len(view.findChildren(AppRow)) == 0
-    store.add_records([Record(today, "C:/Apps/A.exe", "a.exe", 30)])
+    store.add_records([rec(today, 10, "a.exe", 30)])
     view.refresh()
     assert len(view.findChildren(AppRow)) == 1
     assert view.total_label.text() == "30 秒"
+
+
+def test_hour_bars_reflects_peak(store, qtbot):
+    today = date.today().isoformat()
+    store.add_records([
+        rec(today, 10, "a.exe", 300),
+        rec(today, 10, "b.exe", 120),
+        rec(today, 20, "a.exe", 7200),
+    ])
+    view = StatsView(store)
+    qtbot.addWidget(view)
+    bars = view.findChildren(HourBars)
+    assert len(bars) == 1
+    assert bars[0]._hours[10] == 420          # 10 时合计
+    assert bars[0]._hours[20] == 7200
+    assert "峰值 20-21 时" in view.peak_label.text()
+
+
+def test_hour_bars_empty_peak_blank(store, qtbot):
+    view = StatsView(store)
+    qtbot.addWidget(view)
+    assert view.peak_label.text() == ""
+    assert view.hour_bars._hours == [0] * HOURS
 
 
 def test_display_name_uses_path_basename():
@@ -77,8 +105,8 @@ def test_format_duration_cases():
 def test_history_view_shows_seven_days(store, qtbot):
     today = date.today()
     store.add_records([
-        Record((today - timedelta(days=1)).isoformat(), "C:/Apps/A.exe", "a.exe", 3600),
-        Record((today - timedelta(days=3)).isoformat(), "C:/Apps/B.exe", "b.exe", 120),
+        rec((today - timedelta(days=1)).isoformat(), 10, "a.exe", 3600),
+        rec((today - timedelta(days=3)).isoformat(), 14, "b.exe", 120),
     ])
     view = HistoryView(store)
     qtbot.addWidget(view)

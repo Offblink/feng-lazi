@@ -1,6 +1,6 @@
 # 凤辣子 (feng-lazi)
 
-PyQt6 前台应用使用时长统计工具。常驻系统托盘后台运行，只统计**前台窗口**对应的应用；桌面、任务栏、系统托盘、锁屏等状态不计时。名字取自《红楼梦》王熙凤的绰号，凤辣子盯得紧，你的每一秒它都记着。
+PyQt6 前台应用使用时长统计工具。常驻系统托盘后台运行，只统计**前台窗口**对应的应用；桌面、任务栏、系统托盘、锁屏等状态不计时。除时长外还按**小时**记录使用时间，一眼看出什么时候在用什么。名字取自《红楼梦》王熙凤的绰号，凤辣子盯得紧，你的每一秒它都记着。
 
 > English: [README_EN.md](README_EN.md)
 
@@ -19,10 +19,10 @@ PyQt6 前台应用使用时长统计工具。常驻系统托盘后台运行，�
 
 ```bash
 pip install -r requirements.txt
-python main.py
+python main.pyw
 ```
 
-启动后无窗口，直接驻留系统托盘（后台）。开发/测试依赖见 `requirements-dev.txt`。
+启动后无窗口，直接驻留系统托盘（后台）。双击 `main.pyw` 亦可（无控制台窗口）。开发/测试依赖见 `requirements-dev.txt`。
 
 ## 托盘操作
 
@@ -38,6 +38,8 @@ python main.py
 ## 统计规则
 
 - 每秒探测前台窗口，按 1 秒粒度累计；切换应用 / 每 10 秒 / 退出时写入数据库
+- 秒数按使用时刻的**日期 + 小时**入账，支持"什么时候在用什么"的时间分布统计
+- **重名窗口处理**：以 exe **完整路径**为身份主键 —— 同名但不同目录的程序各自统计互不混淆；同一应用开多个窗口（如多个浏览器标签）合并为一条；不用窗口标题做身份（标题随内容变化会碎片化统计）
 - 排除: 桌面(Progman/WorkerW)、任务栏托盘(Shell_TrayWnd)、锁屏(LogonUI)、dwm、搜索、系统外壳进程、旧式 UWP 宿主(ApplicationFrameHost)、本程序自身
 - 提权进程读取路径失败时自动回退到设备路径 + 卷映射
 - 单实例 (QLockFile)，防双开重复计时
@@ -45,11 +47,12 @@ python main.py
 ## 数据
 
 - 存储: `%LOCALAPPDATA%\UsageTracker\usage.db` (SQLite, WAL)
-- 表 `usage(date, app_path, app_name, seconds)`，按 (日期, 应用) 增量累加
+- 表 `usage(date, hour, app_path, app_name, seconds)`，主键 (日期, 小时, 应用)，增量累加
+- v1 旧库（无小时维度）启动时自动备份为 `usage.v1.bak` 并重建，不会丢失
 
 ## 界面
 
-- 今日: 总时长 + 各应用比例条列表（图标取自 exe）
+- 今日: 总时长 + **24 小时时间分布条**（峰值时段标注）+ 各应用比例条列表（图标取自 exe）
 - 近 7 天: 每日总时长 + 当日 top 3 应用
 - 视觉: Minimal & Clean 浅色，Segoe UI Variable，单一深青 accent，Fluent 语言
 
@@ -65,20 +68,21 @@ python -m pytest
 ## 目录
 
 ```
-main.py            入口 (单实例 + 驻留托盘)
+main.pyw           入口 (单实例 + 驻留托盘, 无控制台窗口)
 app.py             TrayApp: 托盘生命周期 + 每秒跟踪 tick
 foreground.py      Win32 前台探测 + 排除规则 (ctypes)
 session.py         Tracker 累计逻辑 (纯逻辑)
-store.py           SQLite 存储 + 聚合查询
+store.py           SQLite 存储 + 聚合查询 (v2: 小时维度)
 theme.py           设计令牌 (色板/字体/QSS)
 resources/icon.ico 应用/托盘图标 (缺失时回退运行时绘制)
-widgets/           统计视图 (今日/近7天/应用行/格式化)
+widgets/           统计视图 (今日/近7天/时间分布/应用行/格式化)
 tests/             pytest + qtbot 测试
 ```
 
 ## 已知限制
 
 - 个别旧式 UWP 应用（ApplicationFrameHost 宿主）无法归因到真实应用，计入排除
-- 跨午夜的使用时段按新日期入账（1 秒粒度内的跨天误差可忽略）
+- 跨午夜/跨小时的使用段按新时间入账（1 秒粒度内的跨段误差可忽略）
+- v1 升级到 v2 时旧库只保留每日汇总、无法还原小时，故整体备份为 `usage.v1.bak` 后重新统计
 - 亚秒级的前台切换不统计（对时长统计无意义）
 - 暂停统计状态不跨重启保存

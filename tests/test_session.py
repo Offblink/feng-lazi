@@ -70,7 +70,29 @@ def test_midnight_crossing_credits_new_date():
     tr.tick(datetime(2026, 8, 12, 23, 59, 59), Fg("a.exe"))
     tr.tick(datetime(2026, 8, 13, 0, 0, 1), Fg("a.exe"))
     recs = tr.flush(datetime(2026, 8, 13, 0, 0, 1))
-    assert recs == [Record("2026-08-13", "C:/Apps/a.exe", "a.exe", 2)]
+    assert recs == [Record("2026-08-13", 0, "C:/Apps/a.exe", "a.exe", 2)]
+
+
+def test_hour_crossing_credits_tick_hour():
+    tr = Tracker()
+    tr.tick(datetime(2026, 8, 12, 10, 59, 59), Fg("a.exe"))
+    tr.tick(datetime(2026, 8, 12, 11, 0, 2), Fg("a.exe"))   # 3 秒跨小时
+    recs = tr.flush(datetime(2026, 8, 12, 11, 0, 2))
+    assert recs == [Record("2026-08-12", 11, "C:/Apps/a.exe", "a.exe", 3)]
+
+
+def test_hour_attribution_by_tick_time():
+    tr = Tracker()
+    tr.tick(datetime(2026, 8, 12, 10, 0, 0), Fg("a.exe"))
+    tr.tick(datetime(2026, 8, 12, 10, 0, 4), Fg("a.exe"))
+    recs = tr.flush(datetime(2026, 8, 12, 10, 0, 4))
+    assert {(r.hour, r.app_name, r.seconds) for r in recs} == {(10, "a.exe", 4)}
+
+    tr2 = Tracker()   # 独立 tracker, 避免大间隔触发 60s 上限污染
+    tr2.tick(datetime(2026, 8, 12, 14, 0, 0), Fg("b.exe"))
+    tr2.tick(datetime(2026, 8, 12, 14, 0, 3), Fg("b.exe"))
+    recs2 = tr2.flush(datetime(2026, 8, 12, 14, 0, 3))
+    assert {(r.hour, r.app_name, r.seconds) for r in recs2} == {(14, "b.exe", 3)}
 
 
 def test_empty_tracker_flush():

@@ -15,6 +15,7 @@ MAX_TICK_DELTA = 60
 @dataclass(frozen=True)
 class Record:
     date: str       # 'YYYY-MM-DD'
+    hour: int       # 0-23, 该段秒数入账的小时
     app_path: str
     app_name: str
     seconds: int
@@ -25,7 +26,7 @@ class Tracker:
 
     def __init__(self) -> None:
         self._current: tuple[str, str] | None = None   # (path, name) 当前段
-        self._pending: dict[tuple[str, str, str], int] = {}  # (date, path, name) -> 秒
+        self._pending: dict[tuple[str, int, str, str], int] = {}  # (date, hour, path, name) -> 秒
         self._last: datetime | None = None
         self._paused = False
 
@@ -40,7 +41,7 @@ class Tracker:
 
     def pending_seconds(self, date_str: str) -> int:
         """缓冲中某日的秒数 (已累计但尚未 flush 入库)."""
-        return sum(s for (d, _p, _n), s in self._pending.items() if d == date_str)
+        return sum(s for (d, _h, _p, _n), s in self._pending.items() if d == date_str)
 
     def pause(self) -> None:
         if not self._paused:
@@ -53,11 +54,11 @@ class Tracker:
     def tick(self, now: datetime, fg) -> None:
         """每秒调用. fg: ForegroundInfo | None (无前台/不可统计时传 None).
 
-        段内秒数按 tick 时刻的日期入账 (跨午夜按新日期计, 见 README 限制).
+        段内秒数按 tick 时刻的日期+小时入账 (跨午夜/跨小时按新时间计).
         """
         delta = self._delta(now)
         if self._current is not None and delta > 0:
-            key = (now.date().isoformat(), self._current[0], self._current[1])
+            key = (now.date().isoformat(), now.hour, self._current[0], self._current[1])
             self._pending[key] = self._pending.get(key, 0) + delta
         self._last = now
         if self._paused or fg is None:
@@ -70,11 +71,11 @@ class Tracker:
         if self._current is not None and now is not None:
             delta = self._delta(now)
             if delta > 0:
-                key = (now.date().isoformat(), self._current[0], self._current[1])
+                key = (now.date().isoformat(), now.hour, self._current[0], self._current[1])
                 self._pending[key] = self._pending.get(key, 0) + delta
             self._last = now
-        records = [Record(date=d, app_path=p, app_name=n, seconds=s)
-                   for (d, p, n), s in self._pending.items() if s > 0]
+        records = [Record(date=d, hour=h, app_path=p, app_name=n, seconds=s)
+                   for (d, h, p, n), s in self._pending.items() if s > 0]
         self._pending.clear()
         return records
 
