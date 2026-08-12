@@ -1,4 +1,4 @@
-"""今日统计视图: 日期 + 总时长 header, 时间分布卡片, 应用比例条列表."""
+"""今日统计视图: 日期 + 总时长 header, 使用时段甘特图, 应用比例条列表."""
 from datetime import date
 
 from PyQt6.QtCore import Qt
@@ -7,11 +7,11 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayou
 from theme import BORDER
 from widgets.app_row import AppRow
 from widgets.format import format_duration
-from widgets.hour_bars import HourBars, HOURS
+from widgets.time_gantt import TimeGantt
 
 
 class StatsView(QWidget):
-    """今日统计: 总时长 + 24 小时分布 + 各应用比例条列表."""
+    """今日统计: 总时长 + 每款应用的时段甘特图 + 各应用比例条列表."""
 
     def __init__(self, store, parent=None):
         super().__init__(parent)
@@ -31,26 +31,31 @@ class StatsView(QWidget):
         header.addWidget(self.total_label)
         root.addLayout(header)
 
-        # --- 时间分布卡片 ---
-        self.dist_card = QFrame(self)
-        self.dist_card.setObjectName("card")
-        dist_layout = QVBoxLayout(self.dist_card)
-        dist_layout.setContentsMargins(16, 12, 16, 10)
-        dist_layout.setSpacing(8)
+        # --- 使用时段甘特图卡片 ---
+        self.gantt_card = QFrame(self)
+        self.gantt_card.setObjectName("card")
+        gantt_layout = QVBoxLayout(self.gantt_card)
+        gantt_layout.setContentsMargins(16, 12, 16, 10)
+        gantt_layout.setSpacing(8)
 
-        dist_head = QHBoxLayout()
-        dist_title = QLabel("时间分布", self.dist_card)
-        dist_title.setObjectName("sectionTitle")
-        self.peak_label = QLabel(self.dist_card)
-        self.peak_label.setObjectName("appDuration")
-        dist_head.addWidget(dist_title)
-        dist_head.addStretch(1)
-        dist_head.addWidget(self.peak_label)
-        dist_layout.addLayout(dist_head)
+        gantt_head = QHBoxLayout()
+        gantt_title = QLabel("使用时段", self.gantt_card)
+        gantt_title.setObjectName("sectionTitle")
+        self.gantt_hint = QLabel("横轴为 24 小时", self.gantt_card)
+        self.gantt_hint.setObjectName("appDuration")
+        gantt_head.addWidget(gantt_title)
+        gantt_head.addStretch(1)
+        gantt_head.addWidget(self.gantt_hint)
+        gantt_layout.addLayout(gantt_head)
 
-        self.hour_bars = HourBars(parent=self.dist_card)
-        dist_layout.addWidget(self.hour_bars)
-        root.addWidget(self.dist_card)
+        self.gantt = TimeGantt(parent=self.gantt_card)
+        self.gantt_scroll = QScrollArea(self.gantt_card)
+        self.gantt_scroll.setWidgetResizable(True)
+        self.gantt_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.gantt_scroll.setMaximumHeight(TimeGantt.ROW_H * 6 + TimeGantt.AXIS_H + 6)
+        self.gantt_scroll.setWidget(self.gantt)
+        gantt_layout.addWidget(self.gantt_scroll)
+        root.addWidget(self.gantt_card)
 
         # --- 应用列表卡片 ---
         self.card = QFrame(self)
@@ -80,7 +85,7 @@ class StatsView(QWidget):
 
         self.date_label.setText(f"{today.month} 月 {today.day} 日")
         self.total_label.setText(format_duration(total))
-        self._refresh_distribution(today.isoformat())
+        self._refresh_gantt(today.isoformat())
 
         self._clear_card()
         if rows:
@@ -99,16 +104,10 @@ class StatsView(QWidget):
             self.card.hide()
             self.empty_label.show()
 
-    def _refresh_distribution(self, date_str: str):
-        hours = self._store.hourly_breakdown(date_str)
-        self.hour_bars.set_hours([h["seconds"] for h in hours])
-        peak_hour, peak_secs = max(
-            ((h["hour"], h["seconds"]) for h in hours), key=lambda x: x[1])
-        if peak_secs > 0:
-            self.peak_label.setText(
-                f"峰值 {peak_hour}-{peak_hour + 1} 时 · {format_duration(peak_secs)}")
-        else:
-            self.peak_label.setText("")
+    def _refresh_gantt(self, date_str: str):
+        apps = self._store.app_hourly(date_str)
+        self.gantt.set_rows(apps)
+        self.gantt_card.setVisible(bool(apps))
 
     def _clear_card(self):
         while self.card_layout.count():

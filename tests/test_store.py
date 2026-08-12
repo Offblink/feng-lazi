@@ -38,18 +38,19 @@ def test_daily_breakdown_sums_across_hours(store):
     assert store.daily_breakdown("2026-08-12")[1]["seconds"] == 9
 
 
-def test_hourly_breakdown_always_24_slots(store):
+def test_app_hourly_per_app_slots(store):
     store.add_records([
         rec("2026-08-12", 10, "a.exe", 60),
-        rec("2026-08-12", 10, "b.exe", 30),
-        rec("2026-08-12", 22, "a.exe", 120),
+        rec("2026-08-12", 11, "a.exe", 30),
+        rec("2026-08-12", 10, "b.exe", 120),
     ])
-    hours = store.hourly_breakdown("2026-08-12")
-    assert len(hours) == 24
-    assert [h["hour"] for h in hours] == list(range(24))
-    assert hours[10]["seconds"] == 90
-    assert hours[22]["seconds"] == 120
-    assert hours[0]["seconds"] == 0
+    apps = store.app_hourly("2026-08-12")
+    assert [a["app_name"] for a in apps] == ["b.exe", "a.exe"]   # 秒数降序
+    a = apps[1]
+    assert a["hours"][10] == 60 and a["hours"][11] == 30
+    assert len(a["hours"]) == 24
+    assert apps[0]["hours"][10] == 120
+    assert store.app_hourly("2026-08-13") == []
 
 
 def test_days_isolated(store):

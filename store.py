@@ -70,13 +70,18 @@ class Store:
             (date_str,)).fetchone()
         return int(row[0])
 
-    def hourly_breakdown(self, date_str: str) -> list[dict]:
-        """某日 24 小时各自的累计秒数 (全应用合并), 恒为 24 项."""
+    def app_hourly(self, date_str: str) -> list[dict]:
+        """某日各应用的小时分布 (甘特图数据): 总秒数降序, 每项 hours 恒 24 格."""
         rows = self.conn.execute(
-            "SELECT hour, SUM(seconds) FROM usage WHERE date = ? GROUP BY hour",
-            (date_str,)).fetchall()
-        by_hour = {h: int(s) for h, s in rows}
-        return [{"hour": h, "seconds": by_hour.get(h, 0)} for h in range(24)]
+            "SELECT app_path, app_name, hour, SUM(seconds) FROM usage "
+            "WHERE date = ? GROUP BY app_path, hour", (date_str,)).fetchall()
+        apps: dict[str, dict] = {}
+        for path, name, hour, secs in rows:
+            item = apps.setdefault(path, {"app_path": path, "app_name": name,
+                                          "hours": [0] * 24, "seconds": 0})
+            item["hours"][hour] += int(secs)
+            item["seconds"] += int(secs)
+        return sorted(apps.values(), key=lambda a: a["seconds"], reverse=True)
 
     def daily_breakdown(self, date_str: str) -> list[dict]:
         """某日各应用时长 (跨小时聚合), 秒数降序."""

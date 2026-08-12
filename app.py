@@ -265,6 +265,8 @@ def main() -> int:
     window = TrayApp()
     window.start()
     window.show_startup_notification()
+    # 兜底: 任何正常退出路径 (含 Windows 注销/关机前的事件循环退出) 都先 flush
+    app.aboutToQuit.connect(window._flush)
     code = app.exec()
     return code
 

@@ -8,8 +8,8 @@ from store import Store
 from widgets.app_row import AppRow, display_name
 from widgets.format import format_duration
 from widgets.history_view import AppLine, DayBlock, HistoryView
-from widgets.hour_bars import HourBars, HOURS
 from widgets.stats_view import StatsView
+from widgets.time_gantt import TimeGantt, spans_from_hours
 
 
 @pytest.fixture
@@ -67,27 +67,42 @@ def test_stats_view_refresh_picks_up_new_records(store, qtbot):
     assert view.total_label.text() == "30 秒"
 
 
-def test_hour_bars_reflects_peak(store, qtbot):
+def test_spans_merge_consecutive_hours():
+    assert spans_from_hours([0] * 24) == []
+    assert spans_from_hours([60, 60, 0, 30, 0, 0, 45]) == [(0, 2), (3, 4), (6, 7)]
+    assert spans_from_hours([60, 60, 0, 30]) == [(0, 2), (3, 4)]
+    hours = [0] * 24
+    hours[23] = 10
+    assert spans_from_hours(hours) == [(23, 24)]
+
+
+def test_gantt_shows_rows_and_spans(store, qtbot):
     today = date.today().isoformat()
     store.add_records([
         rec(today, 10, "a.exe", 300),
-        rec(today, 10, "b.exe", 120),
-        rec(today, 20, "a.exe", 7200),
+        rec(today, 11, "a.exe", 120),
+        rec(today, 20, "b.exe", 7200),
     ])
     view = StatsView(store)
     qtbot.addWidget(view)
-    bars = view.findChildren(HourBars)
-    assert len(bars) == 1
-    assert bars[0]._hours[10] == 420          # 10 时合计
-    assert bars[0]._hours[20] == 7200
-    assert "峰值 20-21 时" in view.peak_label.text()
+    view.show()
+    gantts = view.findChildren(TimeGantt)
+    assert len(gantts) == 1
+    gantt = gantts[0]
+    rows = {r["app_name"]: r for r in gantt._rows}
+    assert set(rows) == {"a.exe", "b.exe"}
+    assert rows["a.exe"]["hours"][10] == 300
+    assert rows["a.exe"]["hours"][11] == 120
+    assert rows["b.exe"]["hours"][20] == 7200
+    assert spans_from_hours(rows["a.exe"]["hours"]) == [(10, 12)]
+    assert view.gantt_card.isVisible()
 
 
-def test_hour_bars_empty_peak_blank(store, qtbot):
+def test_gantt_hidden_when_no_data(store, qtbot):
     view = StatsView(store)
     qtbot.addWidget(view)
-    assert view.peak_label.text() == ""
-    assert view.hour_bars._hours == [0] * HOURS
+    view.show()
+    assert not view.gantt_card.isVisible()
 
 
 def test_display_name_uses_path_basename():
