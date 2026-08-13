@@ -10,10 +10,15 @@ My little brother keeps sneaking in gaming sessions. To prevent any more "incide
 
 ## Dream of the Red Chamber Is Really Good!
 
-> My brother and I have been watching the 1987 TV adaptation of *Dream of the Red Chamber* lately. It is beautifully made — strongly recommended, friends at home and abroad, don't miss it.
-> Back to this app: it started because my little brother kept sneaking in gaming sessions, and there was no stopping him. So I made this time tracker. As long as your computer is on, it writes down who is in the foreground and for how long. No denying it.
-> It sits quietly in the system tray and stays out of the way. Want to check the books? Double-click to open it: what you used today, how you spent the last seven days, all clear.
-> The name came from the show — Feng La Zi keeps the sharpest eye on everyone, which fits perfectly. Now my brother thinks twice before opening a game. Mind your skin.
+>
+Lots of people (especially some of my male friends) have held a bias against this novel since they were kids, so they just can't get into it.
+>
+But honestly, if you're willing to give it a shot, go check out the '87 TV adaptation — it's so good!
+>
+The character styling is incredibly faithful, and the atmosphere is perfectly crafted.
+>
+It truly deserves the title of the greatest TV series on earth! ⬅️ At least in my humble opinion 😕
+>
 
 ## Run
 
