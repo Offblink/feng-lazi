@@ -59,3 +59,16 @@ Windows 上统计"用户实际在用的应用"的时长。只统计**前台窗�
 1. 视觉预设: Minimal & Clean 浅色 (推荐) / Dark tech 深色 / Balanced Professional —— 需用户选
 2. UWP 新版应用 (如 Windows 设置/照片) 多数走自身进程，可正常统计；个别走 ApplicationFrameHost 的旧式 UWP 计入排除（已知限制，v1 接受）
 3. 排除列表是否需要用户可编辑 (设置界面) —— v1 内置固定列表，设置界面列为后续
+
+## v3: 精确起止时段 (2026-08)
+
+v2 只按小时累计 (`usage(date, hour, ...)`), 甘特图只能显示"某小时内有使用", 无法回答
+"从几时几分开始、几时几分停止"。v3 改为按连续使用段记录精确时刻:
+
+- 段 = 同应用不间断前台; 记录 `date` + `start`/`end` (HH:MM:SS) + 秒数
+- 表 `segments(date, start, end, app_path, app_name, seconds)`, PK (date, start, app_path)
+- 开放段每 10s 以最新 (end, seconds) 覆盖刷新同一行 —— 崩溃最多丢 10s, 甘特图实时可见;
+  段结束时落定最终起止
+- 段跨午夜在 00:00 拆分, 跨边界秒数计入新日期 (与 v2 口径一致); 跨小时不拆分
+- v2 库无法还原分钟 → 备份 `.v2.bak` 后重建 (沿用 v1→v2 先例, 不混入无法还原的时刻)
+- 甘特图按段的起始分钟定位渲染 (起始点驱动), tooltip 显示 起止时刻 + 时长

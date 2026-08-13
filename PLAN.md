@@ -101,3 +101,25 @@ store.Store(db_path: str):
   daily_breakdown(date:str) -> list[dict]          # 秒降序
   last_n_days(n:int, end_date: date) -> list[dict] # 含空日
 ```
+
+## v3: 精确起止时段 (增量实现)
+
+背景: v2 只按小时聚合, 无法回答"某款应用从几时几分开始到几时几分停止"。目标:
+确定具体起止时刻后, 甘特图时段按起始点正确渲染。
+
+### 变更
+- `store.py`: `usage(date, hour, ...)` → `segments(date, start, end, app_path, app_name, seconds)`,
+  PK (date, start, app_path); upsert 覆盖开放段; `app_hourly` → `app_segments`
+  (每段 start_min/end_min/seconds + HH:MM:SS 原串)
+- `session.py`: `Record(date, start, end, app_path, app_name, seconds)`; 段 = 连续前台;
+  tick 切换/无前台/暂停结束段; 跨午夜 00:00 拆分; flush 返回 已结束段 + 开放段最新状态;
+  pending 记账防与已入库开放段重复
+- `widgets/time_gantt.py`: 分钟级段矩形按起始点渲染; tooltip `应用 · 10:05 - 10:23 · 18 分`
+  (不足 1 分钟的段含秒)
+- `widgets/stats_view.py`: 接入 `app_segments`
+- 迁移: v2 库 (含 hour 列) 备份 `.v2.bak` 后重建; v1 库仍备份 `.v1.bak`
+
+### 验收
+- pytest 全绿 (53 项, 含 v3 段语义单测与迁移测试)
+- 真实 v2 库副本迁移验证: 3 行 283 秒完整备份, 新库为 segments 空表
+- 离屏渲染像素断言: 段内/间隙/段后颜色与起始分钟定位一致

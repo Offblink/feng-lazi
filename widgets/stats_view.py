@@ -105,7 +105,7 @@ class StatsView(QWidget):
             self.empty_label.show()
 
     def _refresh_gantt(self, date_str: str):
-        apps = self._store.app_hourly(date_str)
+        apps = self._store.app_segments(date_str)
         self.gantt.set_rows(apps)
         self.gantt_card.setVisible(bool(apps))
 

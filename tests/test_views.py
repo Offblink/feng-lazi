@@ -1,4 +1,4 @@
-"""统计视图测试 (qtbot): 今日数据渲染 / 空状态 / 近7天 / 时间分布 / 展示名."""
+"""统计视图测试 (qtbot): 今日数据渲染 / 空状态 / 近7天 / 精确时段 / 展示名."""
 from datetime import date, timedelta
 
 import pytest
@@ -9,7 +9,7 @@ from widgets.app_row import AppRow, display_name
 from widgets.format import format_duration
 from widgets.history_view import AppLine, DayBlock, HistoryView
 from widgets.stats_view import StatsView
-from widgets.time_gantt import TimeGantt, spans_from_hours
+from widgets.time_gantt import TimeGantt, seg_times
 
 
 @pytest.fixture
@@ -19,15 +19,15 @@ def store(tmp_path):
     s.close()
 
 
-def rec(d, h, name, seconds, path=None):
-    return Record(d, h, path or f"C:/Apps/{name}", name, seconds)
+def rec(d, start, end, name, seconds, path=None):
+    return Record(d, start, end, path or f"C:/Apps/{name}", name, seconds)
 
 
 def test_stats_view_shows_total_and_rows(store, qtbot):
     today = date.today().isoformat()
     store.add_records([
-        rec(today, 10, "a.exe", 3600),
-        rec(today, 14, "b.exe", 600),
+        rec(today, "10:00:00", "11:00:00", "a.exe", 3600),
+        rec(today, "14:00:00", "14:10:00", "b.exe", 600),
     ])
     view = StatsView(store)
     qtbot.addWidget(view)
@@ -45,7 +45,7 @@ def test_stats_view_empty_state(store, qtbot):
 
 def test_stats_view_many_rows_scrollable(store, qtbot):
     today = date.today().isoformat()
-    store.add_records([rec(today, 10, f"app{i}.exe", (i + 1) * 60)
+    store.add_records([rec(today, "10:00:00", "10:01:00", f"app{i}.exe", (i + 1) * 60)
                        for i in range(30)])
     view = StatsView(store)
     qtbot.addWidget(view)
@@ -61,27 +61,25 @@ def test_stats_view_refresh_picks_up_new_records(store, qtbot):
     view = StatsView(store)
     qtbot.addWidget(view)
     assert len(view.findChildren(AppRow)) == 0
-    store.add_records([rec(today, 10, "a.exe", 30)])
+    store.add_records([rec(today, "10:00:00", "10:00:30", "a.exe", 30)])
     view.refresh()
     assert len(view.findChildren(AppRow)) == 1
     assert view.total_label.text() == "30 秒"
 
 
-def test_spans_merge_consecutive_hours():
-    assert spans_from_hours([0] * 24) == []
-    assert spans_from_hours([60, 60, 0, 30, 0, 0, 45]) == [(0, 2), (3, 4), (6, 7)]
-    assert spans_from_hours([60, 60, 0, 30]) == [(0, 2), (3, 4)]
-    hours = [0] * 24
-    hours[23] = 10
-    assert spans_from_hours(hours) == [(23, 24)]
+def test_seg_times_formats():
+    assert seg_times({"start": "10:05:00", "end": "10:23:30", "seconds": 1110}) \
+        == "10:05 - 10:23"
+    assert seg_times({"start": "10:05:30", "end": "10:05:45", "seconds": 15}) \
+        == "10:05:30 - 10:05:45"   # 不足 1 分钟含秒
 
 
-def test_gantt_shows_rows_and_spans(store, qtbot):
+def test_gantt_shows_rows_and_segments(store, qtbot):
     today = date.today().isoformat()
     store.add_records([
-        rec(today, 10, "a.exe", 300),
-        rec(today, 11, "a.exe", 120),
-        rec(today, 20, "b.exe", 7200),
+        rec(today, "10:05:00", "10:07:00", "a.exe", 120),
+        rec(today, "11:30:00", "11:32:00", "a.exe", 120),
+        rec(today, "20:00:00", "22:00:00", "b.exe", 7200),
     ])
     view = StatsView(store)
     qtbot.addWidget(view)
@@ -91,20 +89,32 @@ def test_gantt_shows_rows_and_spans(store, qtbot):
     gantt = gantts[0]
     rows = {r["app_name"]: r for r in gantt._rows}
     assert set(rows) == {"a.exe", "b.exe"}
-    assert rows["a.exe"]["hours"][10] == 300
-    assert rows["a.exe"]["hours"][11] == 120
-    assert rows["b.exe"]["hours"][20] == 7200
-    assert spans_from_hours(rows["a.exe"]["hours"]) == [(10, 12)]
+    assert [s["start_min"] for s in rows["a.exe"]["segments"]] == [605, 690]
+    assert rows["a.exe"]["segments"][0]["end_min"] == 607
+    assert rows["b.exe"]["segments"][0]["start_min"] == 1200
     assert view.gantt_card.isVisible()
+
+
+def test_gantt_segment_rect_from_start_point():
+    g = TimeGantt()
+    g.resize(502, 100)                  # plot_w = 502 - 150 = 352
+    x0, x1 = g._seg_rect(150, 352, 0, 720)      # 0-12 时 → 整半宽
+    assert x0 == 150 and x1 == 326
+    x0, x1 = g._seg_rect(150, 352, 605, 607)    # 10:05-10:07 → 由起始点定位
+    assert x0 == 150 + int(352 * 605 / 1440)
+    assert x1 - x0 == max(int(352 * 2 / 1440), 2)
+    x0, x1 = g._seg_rect(150, 352, 1439, 1440)  # 末分钟段保底可见
+    assert x1 - x0 == 2
 
 
 def test_gantt_coordinate_conversion():
     g = TimeGantt()
     assert g._row_at(30.5) == 1        # 30.5 // 26 → int
     g.resize(502, 100)                  # plot_w = 502 - 150 = 352
-    assert g._hour_at(151.0) == 0
-    assert g._hour_at(150.0) == 0
-    assert g._hour_at(500.0) == 23      # 越界钳制
+    assert g._minute_at(150.0) == 0
+    assert g._minute_at(151.0) == 4
+    assert g._minute_at(500.0) == 1431
+    assert g._minute_at(1000.0) == 1439  # 越界钳制
 
 
 def test_gantt_hidden_when_no_data(store, qtbot):
@@ -129,8 +139,10 @@ def test_format_duration_cases():
 def test_history_view_shows_seven_days(store, qtbot):
     today = date.today()
     store.add_records([
-        rec((today - timedelta(days=1)).isoformat(), 10, "a.exe", 3600),
-        rec((today - timedelta(days=3)).isoformat(), 14, "b.exe", 120),
+        rec((today - timedelta(days=1)).isoformat(), "10:00:00", "11:00:00",
+            "a.exe", 3600),
+        rec((today - timedelta(days=3)).isoformat(), "14:00:00", "14:02:00",
+            "b.exe", 120),
     ])
     view = HistoryView(store)
     qtbot.addWidget(view)
