@@ -1,7 +1,7 @@
 """theme.py — 设计令牌 (taste skill: Minimal & Clean 浅色预设).
 
 VARIANCE=4 / MOTION=2 / DENSITY=4. 锌灰中性色 + 单一深青 accent, 全程贯穿.
-Windows 11 Fluent 原生语言: Segoe UI Variable, 8px 圆角, 无渐变无阴影堆砌.
+Windows 11 Fluent 风格近似: Segoe UI Variable, 8px 圆角, 无渐变无阴影堆砌.
 """
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QApplication

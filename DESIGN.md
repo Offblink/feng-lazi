@@ -10,7 +10,7 @@ Windows 上统计"用户实际在用的应用"的时长。只统计**前台窗�
 - 用户: 中文界面
 
 ## 设计读 (taste skill)
-"Reading this as: Windows 11 桌面工具 for 自我追踪用户, calm Fluent-native 语言, 倾向 Segoe UI Variable + 锌灰中性色 + 单一深青 accent, Minimal & Clean preset"
+"Reading this as: Windows 11 桌面工具 for 自我追踪用户, calm Fluent 风格, 倾向 Segoe UI Variable + 锌灰中性色 + 单一深青 accent, Minimal & Clean preset"
 - DESIGN_VARIANCE=4, MOTION_INTENSITY=2, VISUAL_DENSITY=4
 - 反模板化纪律: 不用 AI 紫渐变、不用玻璃拟态、无装饰性圆点、无 em-dash
 

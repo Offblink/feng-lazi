@@ -58,7 +58,7 @@ python main.pyw
 
 - 今日: 总时长 + **使用时段甘特图**（每款应用一行时间轴，按精确起止时刻渲染使用段，悬停看 起止时刻 + 时长）+ 各应用比例条列表（图标取自 exe）
 - 近 7 天: 每日总时长 + 当日 top 3 应用
-- 视觉: Minimal & Clean 浅色，Segoe UI Variable，单一深青 accent，Fluent 语言
+- 视觉: Minimal & Clean 浅色，Segoe UI Variable，单一深青 accent，Fluent 风格
 
 ## 测试
 

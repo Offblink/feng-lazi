@@ -60,7 +60,7 @@ The tray tooltip shows in real time: current app + today's total.
 
 - Today: total time + **per-app time gantt** (one timeline row per app, usage segments rendered at their exact start/stop times, hover shows start/stop + duration) + per-app proportional bars (icons extracted from the exe)
 - Last 7 days: daily total + top 3 apps per day
-- Visuals: Minimal & Clean light theme, Segoe UI Variable, single deep-teal accent, Fluent design language
+- Visuals: Minimal & Clean light theme, Segoe UI Variable, single deep-teal accent, Fluent-inspired style
 
 ## Tests
 
