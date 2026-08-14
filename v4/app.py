@@ -1,11 +1,8 @@
-"""凤辣子 — 主应用 (PyQt6).
+"""凤辣子 v4 — qfluentwidgets (Fluent Design) 重写实验.
 
-常驻系统托盘; 托盘交互参照 Get It (源文件/app.py):
-  - QSystemTrayIcon + 右键菜单 (显示统计/暂停统计/退出) + 双击恢复
-  - closeEvent → 最小化到托盘
-  - 退出前清理 (flush 入库 + 隐藏托盘)
-
-实时跟踪: QTimer 每秒探测前台窗口 → Tracker 累计 → 切换/每 10s/退出 flush 入库.
+FluentWindow 左侧导航三页 (使用时段 / 各应用 / 近 7 天); 系统托盘常驻;
+前台跟踪/数据层复用 v3 逻辑 (session.py / store.py / foreground.py 原样拷贝).
+数据目录独立 (%LOCALAPPDATA%/UsageTrackerV4), 不污染 v3.
 """
 import os
 import sys
@@ -14,27 +11,30 @@ from datetime import date, datetime
 from PyQt6.QtCore import Qt, QSharedMemory, QTimer
 from PyQt6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QMenu, QSystemTrayIcon, QTabWidget,
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
+
+from qfluentwidgets import (
+    FluentIcon, FluentWindow, SystemTrayMenu, Theme, setTheme, setThemeColor,
 )
 
 import foreground
 from session import Tracker
 from store import Store
-from widgets.apps_view import AppsView
+from widgets.apps_page import AppsPage
 from widgets.format import format_duration
-from widgets.history_view import HistoryView
-from widgets.stats_view import StatsView
+from widgets.gantt_page import GanttPage
+from widgets.history_page import HistoryPage
 
-APP_NAME = "UsageTracker"
+APP_NAME = "UsageTrackerV4"
 APP_NAME_ZH = "凤辣子"   # 应用中文名 (王熙凤绰号)
 FLUSH_EVERY_TICKS = 10   # 每 10 秒定期入库
-APP_IPC_SINGLETON = "FengLaziSingleton"   # QSharedMemory 单例锁
-APP_IPC_SERVER = "FengLaziIPC"            # QLocalServer 唤醒管道
+APP_IPC_SINGLETON = "FengLaziV4Singleton"   # QSharedMemory 单例锁 (与 v3 隔离)
+APP_IPC_SERVER = "FengLaziV4IPC"            # QLocalServer 唤醒管道
+ACCENT = "#0F766E"       # 品牌深青 (qfluentwidgets 自动派生亮暗变体)
 
 
 def app_data_dir() -> str:
-    """%LOCALAPPDATA%/UsageTracker — 数据目录 (锁文件/数据库)."""
+    """%LOCALAPPDATA%/UsageTrackerV4 — 独立数据目录, 不污染 v3."""
     base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
     d = os.path.join(base, APP_NAME)
     os.makedirs(d, exist_ok=True)
@@ -42,7 +42,7 @@ def app_data_dir() -> str:
 
 
 def make_tray_icon() -> QIcon:
-    """应用/托盘图标: 优先 resources/icon.ico (参照 Get It), 缺失时回退运行时绘制."""
+    """应用/托盘图标: 优先 resources/icon.ico, 缺失时回退运行时绘制."""
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "resources", "icon.ico")
     if os.path.exists(icon_path):
@@ -72,14 +72,12 @@ def _draw_fallback_icon() -> QIcon:
     return QIcon(pm)
 
 
-class TrayApp(QMainWindow):
-    """主窗口 + 系统托盘 (常驻后台) + 前台跟踪."""
+class TrayApp(FluentWindow):
+    """主窗口: 左侧导航三页 + 系统托盘 + 前台跟踪."""
 
-    def __init__(self, db_path: str | None = None, ipc_name: str | None = None):
+    def __init__(self, db_path: str | None = None):
         super().__init__()
         self._db_path = db_path or os.path.join(app_data_dir(), "usage.db")
-        self._ipc_name = ipc_name or APP_IPC_SERVER
-
         self._store: Store = Store(self._db_path)
         self._tracker: Tracker | None = None
         self._tick_timer: QTimer | None = None
@@ -88,37 +86,35 @@ class TrayApp(QMainWindow):
 
         self.setWindowTitle(APP_NAME_ZH)
         self.setWindowIcon(make_tray_icon())
-        self.resize(480, 640)
-        self.setMinimumSize(420, 560)
+        self.resize(560, 680)
+        self.setMinimumSize(480, 560)
 
-        self._create_central_widget()
+        self._init_pages()
         self._create_tray_icon()
         self._create_ipc_server()
 
-    # ---------- 单实例唤醒 (参照 Get It) ----------
+    # ---------- 导航页面 ----------
+    def _init_pages(self):
+        self.gantt_page = GanttPage(self._store, self)
+        self.apps_page = AppsPage(self._store, self)
+        self.history_page = HistoryPage(self._store, self)
+        self.addSubInterface(self.gantt_page, FluentIcon.DATE_TIME, "使用时段")
+        self.addSubInterface(self.apps_page, FluentIcon.APPLICATION, "各应用")
+        self.addSubInterface(self.history_page, FluentIcon.HISTORY, "近 7 天")
+
+    # ---------- 单实例唤醒 ----------
     def _create_ipc_server(self):
         """第二实例启动时经 QLocalServer 唤醒本窗口."""
         self._ipc_server = QLocalServer(self)
-        self._ipc_server.listen(self._ipc_name)
+        self._ipc_server.listen(APP_IPC_SERVER)
         self._ipc_server.newConnection.connect(self._restore_from_tray)
-
-    # ---------- 中央统计视图 ----------
-    def _create_central_widget(self):
-        self.tabs = QTabWidget(self)
-        self.stats_view = StatsView(self._store, self.tabs)
-        self.apps_view = AppsView(self._store, self.tabs)
-        self.history_view = HistoryView(self._store, self.tabs)
-        self.tabs.addTab(self.stats_view, "使用时段")
-        self.tabs.addTab(self.apps_view, "各应用")
-        self.tabs.addTab(self.history_view, "近 7 天")
-        self.setCentralWidget(self.tabs)
 
     def showEvent(self, event):
         super().showEvent(event)
-        if hasattr(self, "stats_view"):
-            self.stats_view.refresh()
-            self.apps_view.refresh()
-            self.history_view.refresh()
+        if hasattr(self, "gantt_page"):
+            self.gantt_page.refresh()
+            self.apps_page.refresh()
+            self.history_page.refresh()
 
     # ========================
     # 前台跟踪
@@ -146,9 +142,9 @@ class TrayApp(QMainWindow):
         if self._tick_count % FLUSH_EVERY_TICKS == 0:
             self._flush()
             if self.isVisible():   # 窗口开着时每 10s 刷新统计
-                self.stats_view.refresh()
-                self.apps_view.refresh()
-                self.history_view.refresh()
+                self.gantt_page.refresh()
+                self.apps_page.refresh()
+                self.history_page.refresh()
         self._update_tooltip()
 
     def _flush(self):
@@ -172,14 +168,14 @@ class TrayApp(QMainWindow):
         self.tray_icon.setToolTip(tip)
 
     # ========================
-    # 系统托盘 (参照 Get It)
+    # 系统托盘
     # ========================
     def _create_tray_icon(self):
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(make_tray_icon())
         self.tray_icon.setToolTip(APP_NAME_ZH)
 
-        menu = QMenu()
+        menu = SystemTrayMenu()
         show_action = QAction("显示统计", self)
         show_action.triggered.connect(self._restore_from_tray)
         self.pause_action = QAction("暂停统计", self)
@@ -258,10 +254,10 @@ def main() -> int:
     app.setApplicationDisplayName(APP_NAME_ZH)
     app.setQuitOnLastWindowClosed(False)  # 关窗不退出 — 常驻托盘
 
-    from theme import apply as apply_theme
-    apply_theme(app)
+    setTheme(Theme.AUTO)                  # 跟随系统深浅色
+    setThemeColor(ACCENT)
 
-    # 单实例 (参照 Get It): QSharedMemory 判定, 第二实例唤醒现有窗口后退出
+    # 单实例: QSharedMemory 判定, 第二实例唤醒现有窗口后退出
     shared = QSharedMemory(APP_IPC_SINGLETON)
     if shared.attach() or not shared.create(1):
         _wake_existing_instance()

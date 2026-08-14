@@ -1,9 +1,13 @@
-"""跟踪集成测试 (qtbot): tick → 累计 → flush 入库 → tooltip / 暂停 / 自身排除.
+"""v4 集成测试 (qtbot): tick → 累计 → flush 入库 → tooltip / 暂停 / 自身排除 / 三页导航.
 
 用假时钟 + 假前台探测, 不依赖真实桌面状态.
 """
 import os
+import sys
 from datetime import date, datetime
+
+# 保证 v4/ 在 sys.path 最前 (防与项目根 v3 同名包冲突)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
@@ -125,7 +129,8 @@ def test_tooltip_shows_paused(running_app):
     assert w.tray_icon.toolTip().startswith("已暂停")
 
 
-def test_window_has_three_tabs(running_app):
+def test_window_has_three_pages(running_app):
     w, _clock = running_app
-    assert w.tabs.count() == 3
-    assert [w.tabs.tabText(i) for i in range(3)] == ["使用时段", "各应用", "近 7 天"]
+    assert w.stackedWidget.count() == 3
+    assert [w.stackedWidget.widget(i).objectName() for i in range(3)] \
+        == ["GanttPage", "AppsPage", "HistoryPage"]

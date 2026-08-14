@@ -1,7 +1,8 @@
 """使用时段甘特图: 每款应用一行, 横轴 24 小时 (分钟级精确段).
 
 行 = 应用 (图标 + 名称), 段 = 一次连续使用, 按精确起止时刻定位 (起始点驱动渲染).
-悬停到使用段显示 tooltip: 应用 · 起止时刻 · 时长.
+少行时行带随页面高度放大铺满, 多行时回到 ROW_H 走滚动.
+悬停到使用段显示 tooltip: 应用 · 起止时刻 · 时长. 颜色随系统深浅色主题.
 """
 import os
 
@@ -11,7 +12,7 @@ from PyQt6.QtWidgets import (
     QFileIconProvider, QSizePolicy, QToolTip, QWidget,
 )
 
-from theme import ACCENT, BAR_TRACK, TEXT, TEXT_MUTED
+from theme import palette
 from widgets.format import format_duration
 
 _ICONS = QFileIconProvider()
@@ -95,6 +96,7 @@ class TimeGantt(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pal = palette()
         w = self.width()
         plot_x = self.NAME_W
         plot_w = max(w - plot_x, 1)
@@ -111,14 +113,14 @@ class TimeGantt(QWidget):
 
             icon = _ICONS.icon(QFileInfo(row["app_path"])).pixmap(16, 16)
             p.drawPixmap(6, cy - 8, icon)
-            p.setPen(QColor(TEXT))
+            p.setPen(QColor(pal["text"]))
             p.drawText(26, cy + fm.ascent() // 2 - 2, elided)
 
             # 轨道 + 使用段 (精确起止定位)
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(BAR_TRACK))
+            p.setBrush(QColor(pal["track"]))
             p.drawRoundedRect(plot_x, cy - track_h // 2, plot_w, track_h, 4, 4)
-            p.setBrush(QColor(ACCENT))
+            p.setBrush(QColor(pal["accent"]))
             for seg in row["segments"]:
                 x0, x1 = self._seg_rect(plot_x, plot_w,
                                         seg["start_min"], seg["end_min"])
@@ -126,7 +128,7 @@ class TimeGantt(QWidget):
 
         # 横轴刻度 0/6/12/18/24
         base_y = n * rh + 2
-        p.setPen(QColor(TEXT_MUTED))
+        p.setPen(QColor(pal["text_muted"]))
         font = p.font()
         font.setPointSize(8)
         p.setFont(font)

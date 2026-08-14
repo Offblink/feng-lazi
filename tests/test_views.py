@@ -6,6 +6,7 @@ import pytest
 from session import Record
 from store import Store
 from widgets.app_row import AppRow, display_name
+from widgets.apps_view import AppsView
 from widgets.format import format_duration
 from widgets.history_view import AppLine, DayBlock, HistoryView
 from widgets.stats_view import StatsView
@@ -23,31 +24,31 @@ def rec(d, start, end, name, seconds, path=None):
     return Record(d, start, end, path or f"C:/Apps/{name}", name, seconds)
 
 
-def test_stats_view_shows_total_and_rows(store, qtbot):
+def test_apps_view_shows_total_and_rows(store, qtbot):
     today = date.today().isoformat()
     store.add_records([
         rec(today, "10:00:00", "11:00:00", "a.exe", 3600),
         rec(today, "14:00:00", "14:10:00", "b.exe", 600),
     ])
-    view = StatsView(store)
+    view = AppsView(store)
     qtbot.addWidget(view)
     assert view.total_label.text() == "1 小时 10 分"
     assert len(view.findChildren(AppRow)) == 2
 
 
-def test_stats_view_empty_state(store, qtbot):
-    view = StatsView(store)
+def test_apps_view_empty_state(store, qtbot):
+    view = AppsView(store)
     qtbot.addWidget(view)
     view.show()
     assert view.empty_label.isVisible()
     assert not view.card.isVisible()
 
 
-def test_stats_view_many_rows_scrollable(store, qtbot):
+def test_apps_view_many_rows_scrollable(store, qtbot):
     today = date.today().isoformat()
     store.add_records([rec(today, "10:00:00", "10:01:00", f"app{i}.exe", (i + 1) * 60)
                        for i in range(30)])
-    view = StatsView(store)
+    view = AppsView(store)
     qtbot.addWidget(view)
     view.show()
     view.resize(480, 400)
@@ -56,9 +57,9 @@ def test_stats_view_many_rows_scrollable(store, qtbot):
                     timeout=2000)
 
 
-def test_stats_view_refresh_picks_up_new_records(store, qtbot):
+def test_apps_view_refresh_picks_up_new_records(store, qtbot):
     today = date.today().isoformat()
-    view = StatsView(store)
+    view = AppsView(store)
     qtbot.addWidget(view)
     assert len(view.findChildren(AppRow)) == 0
     store.add_records([rec(today, "10:00:00", "10:00:30", "a.exe", 30)])
@@ -84,6 +85,7 @@ def test_gantt_shows_rows_and_segments(store, qtbot):
     view = StatsView(store)
     qtbot.addWidget(view)
     view.show()
+    assert view.total_label.text() == "2 小时 4 分"
     gantts = view.findChildren(TimeGantt)
     assert len(gantts) == 1
     gantt = gantts[0]
@@ -93,6 +95,7 @@ def test_gantt_shows_rows_and_segments(store, qtbot):
     assert rows["a.exe"]["segments"][0]["end_min"] == 607
     assert rows["b.exe"]["segments"][0]["start_min"] == 1200
     assert view.gantt_card.isVisible()
+    assert not view.empty_label.isVisible()
 
 
 def test_gantt_segment_rect_from_start_point():
@@ -122,6 +125,37 @@ def test_gantt_hidden_when_no_data(store, qtbot):
     qtbot.addWidget(view)
     view.show()
     assert not view.gantt_card.isVisible()
+    assert view.empty_label.isVisible()
+
+
+def test_gantt_fills_page_height(store, qtbot):
+    """少行时甘特铺满页面: 卡片吸收剩余高度, 行带随可用高度放大."""
+    today = date.today().isoformat()
+    store.add_records([rec(today, "10:00:00", "11:00:00", "a.exe", 3600),
+                       rec(today, "20:00:00", "22:00:00", "b.exe", 7200)])
+    view = StatsView(store)
+    qtbot.addWidget(view)
+    view.show()
+    view.resize(480, 640)
+    qtbot.wait(50)                          # 布局生效
+    assert view.gantt_card.height() > view.height() // 2
+    assert view.gantt._row_h() > TimeGantt.ROW_H   # 行高放大, 不再固定 26px
+    assert view.gantt.height() >= view.gantt_scroll.viewport().height()
+
+
+def test_gantt_scrolls_when_many_rows(store, qtbot):
+    """多行时行高回落到 ROW_H, 滚动区出现滚动条."""
+    today = date.today().isoformat()
+    store.add_records([rec(today, "10:00:00", "10:01:00", f"app{i}.exe", (i + 1) * 60)
+                       for i in range(30)])
+    view = StatsView(store)
+    qtbot.addWidget(view)
+    view.show()
+    view.resize(480, 640)
+    qtbot.wait(50)
+    assert view.gantt._row_h() == TimeGantt.ROW_H
+    qtbot.waitUntil(lambda: view.gantt_scroll.verticalScrollBar().maximum() > 0,
+                    timeout=2000)
 
 
 def test_display_name_uses_path_basename():
