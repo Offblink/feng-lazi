@@ -106,7 +106,14 @@ class TrayApp(FluentWindow):
     def _create_ipc_server(self):
         """第二实例启动时经 QLocalServer 唤醒本窗口."""
         self._ipc_server = QLocalServer(self)
-        self._ipc_server.listen(APP_IPC_SERVER)
+        # 本实例已持有 QSharedMemory 单例锁; 残留管道名只可能来自异常退出的旧实例,
+        # 清理后重听, 避免唤醒管道静默失效.
+        QLocalServer.removeServer(APP_IPC_SERVER)
+        if not self._ipc_server.listen(APP_IPC_SERVER):
+            print(f"[UsageTrackerV4] 警告: IPC 唤醒管道监听失败 "
+                  f"({self._ipc_server.errorString()}); 第二实例将无法唤醒本窗口",
+                  file=sys.stderr)
+            return
         self._ipc_server.newConnection.connect(self._restore_from_tray)
 
     def showEvent(self, event):

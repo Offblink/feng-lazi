@@ -8,4 +8,7 @@ import os
 import sys
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# 本机同时装有 PySide6/PyQt5: 强制 pytest-qt 使用 PyQt6, 否则 qtbot 会先猜中
+# PySide6, 与测试里 PyQt6 的控件混用导致 "Need to pass a QWidget to addWidget".
+os.environ.setdefault("PYTEST_QT_API", "pyqt6")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
