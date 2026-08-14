@@ -1,6 +1,6 @@
 # 凤辣子 (feng-lazi)
 
-PyQt6 前台应用使用时长统计工具。常驻系统托盘后台运行，只统计**前台窗口**对应的应用；桌面、任务栏、系统托盘、锁屏等状态不计时。每次连续使用都记录**精确起止时刻**（几时几分到几时几分），一眼看出什么时候在用什么。名字取自《红楼梦》王熙凤的绰号，凤辣子盯得紧，你的每一秒它都记着。
+PyQt6 前台应用使用时长统计工具，**两个版本**：经典自绘版（`pyqt/`）与 Fluent Design 版（`fluent/`）。常驻系统托盘后台运行，只统计**前台窗口**对应的应用；桌面、任务栏、系统托盘、锁屏等状态不计时。每次连续使用都记录**精确起止时刻**（几时几分到几时几分），一眼看出什么时候在用什么。名字取自《红楼梦》王熙凤的绰号，凤辣子盯得紧，你的每一秒它都记着。
 
 > English: [README_EN.md](README_EN.md)
 
@@ -18,14 +18,30 @@ PyQt6 前台应用使用时长统计工具。常驻系统托盘后台运行，�
 人物的打扮很传神，环境的营造也都恰到好处，真不愧是**地表最强电视剧**！⬅️至少我是这么觉得的😕
 >
 
+## 两个版本
+
+| 目录 | 版本 | UI 技术 |
+|---|---|---|
+| `pyqt/` | 经典版 | PyQt6 + 自定义 QSS（Minimal & Clean 浅色，Segoe UI Variable，深青 accent） |
+| `fluent/` | Fluent 版 | PyQt6-Fluent-Widgets（左侧导航，跟随系统深浅色，Win11 Mica 材质） |
+
+两版共享同一套跟踪/存储逻辑（`store`/`session`/`foreground` 同源），界面内容一致三页：**使用时段**甘特图（每款应用一行时间轴，按精确起止时刻渲染，悬停看 起止时刻 + 时长）、**各应用**使用总时长比例条列表（图标取自 exe）、**近 7 天**每日总时长 + 当日 top 3 应用。
+
 ## 运行
 
 ```bash
+# 经典版
+cd pyqt
+pip install -r requirements.txt
+python main.pyw
+
+# Fluent 版
+cd fluent
 pip install -r requirements.txt
 python main.pyw
 ```
 
-启动后无窗口，直接驻留系统托盘（后台）。双击 `main.pyw` 亦可（无控制台窗口）。开发/测试依赖见 `requirements-dev.txt`。
+启动后无窗口，直接驻留系统托盘（后台）。双击 `main.pyw` 亦可（无控制台窗口）。开发/测试依赖见各目录 `requirements-dev.txt`。
 
 ## 托盘操作
 
@@ -50,53 +66,27 @@ python main.pyw
 
 ## 数据
 
-- 存储: `%LOCALAPPDATA%\UsageTracker\usage.db` (SQLite, WAL)
+- 经典版: `%LOCALAPPDATA%\UsageTracker\usage.db`
+- Fluent 版: `%LOCALAPPDATA%\UsageTrackerV4\usage.db`（独立数据目录，两版互不干扰）
 - 表 `segments(date, start, end, app_path, app_name, seconds)`，主键 (日期, 段开始时刻, 应用)；同一段刷新时覆盖，不同段各自成行
 - v1/v2 旧库（无精确时刻维度）启动时自动备份为 `usage.v1.bak` / `usage.v2.bak` 并重建，不会丢失
-
-## 界面
-
-- 使用时段: 总时长 + **使用时段甘特图**（每款应用一行时间轴，按精确起止时刻渲染使用段，悬停看 起止时刻 + 时长）
-- 各应用: 今日各应用使用总时长比例条列表（图标取自 exe）
-- 近 7 天: 每日总时长 + 当日 top 3 应用
-- 视觉: Minimal & Clean 浅色，Segoe UI Variable，单一深青 accent，Fluent 风格
-
-## v4 实验: qfluentwidgets (Fluent Design) 重写
-
-`v4/` 是 Fluent Design 风格的重写实验 (PyQt6-Fluent-Widgets)，与 v3 并存互不影响:
-
-- 左侧导航三页 (使用时段 / 各应用 / 近 7 天)，跟随系统深浅色，Win11 Mica 材质
-- 跟踪/存储逻辑与 v3 完全一致 (store/session/foreground 原样拷贝)，数据目录独立 `%LOCALAPPDATA%\UsageTrackerV4`
-- 图标复用 resources/icon.ico
-
-```bash
-cd v4
-pip install -r requirements.txt
-python main.pyw
-```
 
 ## 测试
 
 ```bash
-pip install -r requirements-dev.txt
-python -m pytest
+cd pyqt && python -m pytest      # 经典版
+cd fluent && python -m pytest    # Fluent 版
 ```
 
-(pytest.ini 已固定 `qt_api = pyqt6`，本机同时装有 PySide6 时不会选错绑定)
+(`pyqt/pytest.ini` 已固定 `qt_api = pyqt6`，本机同时装有 PySide6 时不会选错绑定)
 
 ## 目录
 
 ```
-main.pyw           入口 (单实例 + 驻留托盘, 无控制台窗口)
-app.py             TrayApp: 托盘生命周期 + 每秒跟踪 tick
-foreground.py      Win32 前台探测 + 排除规则 (ctypes)
-session.py         Tracker 累计逻辑 (纯逻辑)
-store.py           SQLite 存储 + 聚合查询 (v3: 精确时段段)
-theme.py           设计令牌 (色板/字体/QSS)
-resources/icon.ico 应用/托盘图标 (缺失时回退运行时绘制)
-widgets/           统计视图 (使用时段/各应用/近7天/应用行/格式化)
-v4/                qfluentwidgets Fluent 重写实验 (独立运行)
-tests/             pytest + qtbot 测试
+LICENSE
+README.md / README_EN.md
+pyqt/               经典版: 自定义 QSS (app/foreground/session/store/theme/widgets/tests)
+fluent/             Fluent 版: qfluentwidgets (同源逻辑, widgets 按页拆分)
 ```
 
 ## 已知限制
