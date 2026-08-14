@@ -36,26 +36,22 @@ class TimeGantt(QWidget):
         super().__init__(parent)
         self._rows = rows or []
         self.setMouseTracking(True)
-        # 垂直 Expanding: 少行时随页面高度放大 (行高铺满), 多行时回到 ROW_H 走滚动.
-        # 最小高度 = 内容高度: 视口更矮时保持内容尺寸出现滚动条 (widgetResizable 依赖 qSmartMinSize).
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._apply_min_height()
+        # 行高固定 ROW_H: 内容高度 = 行数 * ROW_H + 轴; 超出视口时由外层滚动区出滚动条
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self._apply_height()
         self.update()
 
     def set_rows(self, rows: list[dict]) -> None:
         self._rows = rows
-        self._apply_min_height()
+        self._apply_height()
         self.update()
 
-    def _apply_min_height(self):
-        self.setMinimumHeight(len(self._rows) * self.ROW_H + self.AXIS_H + 4)
+    def _apply_height(self):
+        self.setFixedHeight(len(self._rows) * self.ROW_H + self.AXIS_H + 4)
 
     def _row_h(self) -> int:
-        """行带高: 少行时用可用高度平分, 多行时保底 ROW_H (滚动)."""
-        n = len(self._rows)
-        if n == 0:
-            return self.ROW_H
-        return max(self.ROW_H, (self.height() - self.AXIS_H - 4) // n)
+        """行带高: 固定 ROW_H, 不随应用数量/窗口高度变化."""
+        return self.ROW_H
 
     def sizeHint(self) -> QSize:
         return QSize(420, len(self._rows) * self.ROW_H + self.AXIS_H + 4)

@@ -57,21 +57,23 @@ def test_gantt_page_empty_state(store, qtbot):
     assert page.empty_label.isVisible()
 
 
-def test_gantt_page_fills_height(store, qtbot):
-    """少行时甘特铺满页面: 卡片吸收剩余高度, 行带随可用高度放大."""
+def test_gantt_rows_fixed_height(store, qtbot):
+    """行高固定 ROW_H, 不随应用数量拉伸: 少行无滚动条, 内容高度 = 行数 * ROW_H."""
     today = date.today().isoformat()
-    store.add_records([rec(today, "10:00:00", "11:00:00", "a.exe", 3600)])
+    store.add_records([rec(today, "10:00:00", "11:00:00", "a.exe", 3600),
+                       rec(today, "20:00:00", "22:00:00", "b.exe", 7200)])
     page = GanttPage(store)
     qtbot.addWidget(page)
     page.show()
     page.resize(520, 680)
     qtbot.wait(50)
-    assert page.gantt_card.height() > page.height() // 2
-    assert page.gantt._row_h() > TimeGantt.ROW_H
+    assert page.gantt._row_h() == TimeGantt.ROW_H
+    assert page.gantt.height() == 2 * TimeGantt.ROW_H + TimeGantt.AXIS_H + 4
+    assert page.gantt_scroll.verticalScrollBar().maximum() == 0
 
 
 def test_gantt_page_scrolls_when_many_rows(store, qtbot):
-    """多行时行高回落 ROW_H, 滚动区出现滚动条."""
+    """多行时内容高度超视口, 滚动区出现滚动条."""
     today = date.today().isoformat()
     store.add_records([rec(today, "10:00:00", "10:01:00", f"app{i}.exe", (i + 1) * 60)
                        for i in range(30)])
