@@ -61,6 +61,20 @@ python main.pyw
 - 近 7 天: 每日总时长 + 当日 top 3 应用
 - 视觉: Minimal & Clean 浅色，Segoe UI Variable，单一深青 accent，Fluent 风格
 
+## v4 实验: qfluentwidgets (Fluent Design) 重写
+
+`v4/` 是 Fluent Design 风格的重写实验 (PyQt6-Fluent-Widgets)，与 v3 并存互不影响:
+
+- 左侧导航三页 (使用时段 / 各应用 / 近 7 天)，跟随系统深浅色，Win11 Mica 材质
+- 跟踪/存储逻辑与 v3 完全一致 (store/session/foreground 原样拷贝)，数据目录独立 `%LOCALAPPDATA%\UsageTrackerV4`
+- 图标复用 resources/icon.ico
+
+```bash
+cd v4
+pip install -r requirements.txt
+python main.pyw
+```
+
 ## 测试
 
 ```bash
@@ -81,6 +95,7 @@ store.py           SQLite 存储 + 聚合查询 (v3: 精确时段段)
 theme.py           设计令牌 (色板/字体/QSS)
 resources/icon.ico 应用/托盘图标 (缺失时回退运行时绘制)
 widgets/           统计视图 (使用时段/各应用/近7天/应用行/格式化)
+v4/                qfluentwidgets Fluent 重写实验 (独立运行)
 tests/             pytest + qtbot 测试
 ```
 

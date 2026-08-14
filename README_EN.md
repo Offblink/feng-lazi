@@ -63,6 +63,20 @@ The tray tooltip shows in real time: current app + today's total.
 - Last 7 days: daily total + top 3 apps per day
 - Visuals: Minimal & Clean light theme, Segoe UI Variable, single deep-teal accent, Fluent-inspired style
 
+## v4 experiment: qfluentwidgets (Fluent Design) rewrite
+
+`v4/` is a Fluent Design rewrite experiment (PyQt6-Fluent-Widgets), running alongside v3 without touching it:
+
+- Left navigation with 3 pages (Usage periods / Apps / Last 7 days), follows the system dark/light theme, Win11 Mica material
+- Tracking/storage logic identical to v3 (store/session/foreground copied verbatim); separate data dir `%LOCALAPPDATA%\UsageTrackerV4`
+- Reuses resources/icon.ico
+
+```bash
+cd v4
+pip install -r requirements.txt
+python main.pyw
+```
+
 ## Tests
 
 ```bash
@@ -82,7 +96,8 @@ session.py         Tracker accumulation logic (pure logic)
 store.py           SQLite storage + aggregate queries (v3: exact-time segments)
 theme.py           Design tokens (palette / fonts / QSS)
 resources/icon.ico App & tray icon (falls back to a runtime-drawn icon)
-widgets/           Stats views (today / last 7 days / hour bars / app rows / formatting)
+widgets/           Stats views (usage periods / per-app / last 7 days / app rows / formatting)
+v4/                qfluentwidgets Fluent rewrite experiment (standalone)
 tests/             pytest + qtbot tests
 ```
 
