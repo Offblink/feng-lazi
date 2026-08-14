@@ -27,7 +27,7 @@ It truly deserves the title of the greatest TV series on earth! ⬅️ At least 
 | `pyqt/` | Classic | PyQt6 + hand-written QSS (Minimal & Clean light theme, Segoe UI Variable, deep-teal accent) |
 | `fluent/` | Fluent | PyQt6-Fluent-Widgets (left navigation, follows system dark/light, Win11 Mica) |
 
-Both editions share the same tracking/storage logic (`store`/`session`/`foreground` are the same source) and the same three pages: **Usage periods** gantt (one timeline row per app, segments rendered at exact start/stop times, hover shows start/stop + duration), **Apps** per-app total usage with proportional bars (icons extracted from the exe), **Last 7 days** daily total + top 3 apps per day.
+Both editions share the same tracking/storage logic (`store`/`session`/`foreground` are the same source) and the same three pages: **Usage periods** gantt (one **fixed-height** timeline row per app, segments rendered at exact start/stop times, hover shows start/stop + duration; a scrollbar appears when the rows exceed the window height), **Apps** per-app total usage with proportional bars (icons extracted from the exe), **Last 7 days** daily total + top 3 apps per day.
 
 ## Run
 
