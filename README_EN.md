@@ -1,6 +1,6 @@
 # Feng La Zi (feng-lazi)
 
-A PyQt6 foreground app usage tracker in **two editions**: the classic hand-styled one (`pyqt/`) and the Fluent Design one (`fluent/`). Runs resident in the system tray and only tracks the app behind the **foreground window**; desktop, taskbar, tray popups, and the lock screen are never counted. Every continuous session is recorded with its **exact start and stop time** (hour:minute to hour:minute), so you can see at a glance when you used what. The name comes from the nickname of Wang Xifeng in *Dream of the Red Chamber*: Feng La Zi ("the peppery one") keeps a sharp eye on everything, just like this app keeps a sharp eye on your every second.
+A foreground app usage tracker in **two editions**: the classic hand-styled one (`pyqt/`) and the Fluent Design one (`fluent/`, both built on PyQt6). Runs resident in the system tray and only tracks the app behind the **foreground window**; desktop, taskbar, tray popups, and the lock screen are never counted. Every continuous session is recorded with its **exact start and stop time** (hour:minute to hour:minute), so you can see at a glance when you used what. The name comes from the nickname of Wang Xifeng in *Dream of the Red Chamber*: Feng La Zi ("the peppery one") keeps a sharp eye on everything, just like this app keeps a sharp eye on your every second.
 
 > 中文: [README.md](README.md)
 
