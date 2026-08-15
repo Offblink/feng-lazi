@@ -111,7 +111,7 @@ flet/               Flet edition: flet 0.86 (same logic source + tracking/tray/s
 
 ## Flet edition development notes
 
-The Flet edition is the only one that does not use Qt: the UI is described from Python (Flet 0.86) and rendered by the Flutter engine, and neither the tray nor single-instance comes out of the box, so both were built by hand. The pitfalls below are the ones actually hit, roughly in impact order.
+The Flet edition is the only one that does not use Qt: the UI is described from Python (Flet 0.86) and rendered by the Flutter engine, and neither the tray nor single-instance comes out of the box, so both were built by hand. Flet is a **two-process architecture**: the Python process only describes the control tree and runs the business logic, while the actual window rendering is done by a separate Flutter client program (`flet.exe`) — downloaded per version on first run and cached in `~/.flet/client`, launched by `ft.run` to connect to the local session. The pitfalls below are the ones actually hit, roughly in impact order.
 
 ### Flet vs. Fluent
 
@@ -136,6 +136,18 @@ The Flet edition is the only one that does not use Qt: the UI is described from 
 4. **Ghost-window illusion**: while debugging rendering, probe processes were killed with `taskkill /F`, which leaves the dead process's window objects behind ("ghost windows"); screenshots kept capturing blank dead windows, and the renderer was wrongly diagnosed as broken. Fix: unique window titles + verify the owning process is alive + PrintWindow only live windows. Lesson: when you kill a process, clear its windows too; check the window is alive before screenshotting.
 5. **64-bit ctypes pointer truncation**: ctypes defaults arguments to `c_int`; handle/pointer APIs (`FindWindowW`, `ExtractIconExW`, `GetDIBits`) must declare explicit `argtypes`/`restype` or return values get truncated to 32 bits, showing up as random crashes or access violations.
 6. **First-run client download**: the Flet desktop client is cached per version in `~/.flet/client`; a failed or blocked download means the window never comes up, and version upgrades re-download. The Qt editions have none of this.
+
+### Packaging & distribution
+
+A plain PyInstaller build only contains the Python side; the Flutter client is a **separate process and is not inside the bundle**, so the user's machine would still download it on first run. For offline distribution, pick one of three:
+
+| Approach | Notes |
+|---|---|
+| Plain PyInstaller | Client missing; downloads on first run, defeating much of the point |
+| PyInstaller + client directory | Ship the whole `~/.flet/client/flet-desktop-full-<version>/flet/` directory alongside and point `FLET_VIEW_PATH` at it (second priority in the launcher lookup order); adds ~50 MB |
+| `flet pack` / `flet build` | Official packaging commands that bundle the client automatically; `build` also targets web / Android / iOS |
+
+For contrast: the pyqt / fluent editions package with plain PyInstaller over PyQt6 — no external process, no download, small size.
 
 ### Takeaway
 

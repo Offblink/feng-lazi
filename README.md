@@ -110,7 +110,9 @@ flet/               Flet 版: flet 0.86 (同源逻辑 + tracking/tray/singleton 
 ## Flet 版开发实录
 
 Flet 版是三个版本里唯一不走 Qt 的：UI 由 Flet 0.86（Python 侧描述控件树，Flutter 引擎渲染），
-托盘和单实例没有现成方案，全部自造。以下是实测中遇到的坑，按影响排序。
+托盘和单实例没有现成方案，全部自造。Flet 是**两进程架构**：Python 进程只负责描述控件树和跑业务逻辑，
+真正的窗口渲染由独立的 Flutter 客户端程序（`flet.exe`）完成——首次运行按版本下载并缓存到
+`~/.flet/client`，`ft.run` 时启动它连上本地会话。以下是实测中遇到的坑，按影响排序。
 
 ### 与 Fluent 版对比
 
@@ -146,6 +148,19 @@ Flet 版是三个版本里唯一不走 Qt 的：UI 由 Flet 0.86（Python 侧描
    表现为随机崩溃或 Access Violation。
 6. **首次运行下载客户端**：flet 桌面客户端按版本缓存到 `~/.flet/client`，下载失败或网络受限时
    窗口起不来；版本升级会重新下载。Qt 系版本无此问题。
+
+### 打包分发
+
+PyInstaller 直接打包只包含 Python 侧，Flutter 客户端是**独立进程，不在包内**，
+用户机器首次运行仍会联网下载。要离线分发，三选一：
+
+| 方式 | 说明 |
+|---|---|
+| 裸 PyInstaller | 客户端缺失，首次运行联网下载，打包意义减半 |
+| PyInstaller + 客户端目录 | 把 `~/.flet/client/flet-desktop-full-<版本>/flet/` 整个目录随包分发，并设 `FLET_VIEW_PATH` 指向它（启动器查找顺序第二优先）；包体积增加约 50MB |
+| `flet pack` / `flet build` | 官方打包命令，自动把客户端一起打进去；`build` 还支持 web / Android / iOS |
+
+对比：pyqt / fluent 版 PyInstaller 直接打 PyQt6 即可，无外部进程、无下载、体积小。
 
 ### 结论
 
