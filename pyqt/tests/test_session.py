@@ -1,5 +1,5 @@
 """session.Tracker 累计逻辑测试 (纯逻辑, 无需 Qt; v3: 精确起止段)."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from session import Record, Tracker
 
@@ -142,3 +142,27 @@ def test_zero_second_segment_not_recorded():
     tr.tick(at(9, 0, 0), Fg("a.exe"))
     tr.tick(at(9, 0, 0), Fg("b.exe"))    # 无增量即切换
     assert tr.flush(at(9, 0, 0)) == []
+
+
+def test_subsecond_ticks_accumulate_via_carry():
+    """定时器提前触发 (每次间隔 <1s): 余数跨 tick 累计进位, 不整秒丢失."""
+    tr = Tracker()
+    base = datetime(2026, 8, 12, 10, 0, 0)
+    tr.tick(base, Fg("a.exe"))
+    for i in range(1, 11):
+        tr.tick(base + timedelta(microseconds=i * 990_000), Fg("a.exe"))  # 每 990ms
+    recs = tr.flush(base + timedelta(microseconds=10 * 990_000))
+    assert recs and recs[0].seconds == 9   # 9.9s 墙钟 → 9 整秒
+
+
+def test_jittered_ticks_count_wall_time():
+    """早/晚触发混合: 计入 floor(墙钟间隔), 而非逐 tick int() 截断."""
+    tr = Tracker()
+    base = datetime(2026, 8, 12, 10, 0, 0)
+    tr.tick(base, Fg("a.exe"))
+    us = 0
+    for i in range(1, 11):
+        us += 990_000 if i % 2 else 1_010_000   # 交替 0.99s / 1.01s
+        tr.tick(base + timedelta(microseconds=us), Fg("a.exe"))
+    recs = tr.flush(base + timedelta(microseconds=us))
+    assert recs and recs[0].seconds == 10   # 共 10.0s 墙钟 → 10 整秒

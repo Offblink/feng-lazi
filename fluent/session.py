@@ -33,6 +33,7 @@ class Tracker:
         self._last: datetime | None = None
         self._closed: list[Record] = []                # 已结束未入库的段
         self._persisted: dict[tuple[str, str], int] = {}  # (date, start) -> 已入库秒数
+        self._carry_us: int = 0                        # 亚秒余数 (µs): 跨 tick 累计进位
         self._paused = False
 
     @property
@@ -131,6 +132,7 @@ class Tracker:
         self._current = None
         self._seg_start = None
         self._seg_seconds = 0
+        self._carry_us = 0   # 余数归属已结束段, 不转入新段
 
     def _open_record(self) -> Record:
         end = self._last if self._last is not None else self._seg_start
@@ -142,8 +144,24 @@ class Tracker:
             app_name=self._current[1],
             seconds=self._seg_seconds)
 
-    def _delta(self, now: datetime) -> int:
+    def _elapsed_us(self, now: datetime) -> int:
+        """本 tick 与上次 tick 的墙钟间隔 (µs); 负值/超长按 0/上限截断."""
         if self._last is None:
             return 0
-        seconds = (now - self._last).total_seconds()
-        return max(0, min(int(seconds), MAX_TICK_DELTA))
+        td = now - self._last
+        us = (td.days * 86400 + td.seconds) * 1_000_000 + td.microseconds
+        return max(0, min(us, MAX_TICK_DELTA * 1_000_000))
+
+    def _delta(self, now: datetime) -> int:
+        """本 tick 计入的整秒数: 亚秒余数跨 tick 累计, 满 1s 才进位.
+
+        定时器常提前触发 (QTimer 实测 ~65% tick 间隔 <1.0s), 旧实现 int() 截断
+        把这些 tick 整秒丢弃 → 一天只剩几十分钟. 余数累计后逐 tick 进位,
+        计入 = floor(墙钟间隔), 仅段切换时丢 <1s.
+        """
+        if self._current is None or self._paused:
+            return 0
+        self._carry_us += self._elapsed_us(now)
+        whole = self._carry_us // 1_000_000
+        self._carry_us %= 1_000_000
+        return whole
