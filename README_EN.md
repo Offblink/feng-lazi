@@ -38,10 +38,12 @@ cd pyqt
 pip install -r requirements.txt
 python main.pyw
 
-# Fluent edition
+# Fluent edition (venv recommended: isolates from other global PyQt/Fluent versions)
 cd fluent
-pip install -r requirements.txt
-python main.pyw
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt   # Windows
+# .venv/bin/pip install -r requirements.txt     # macOS / Linux
+python main.pyw    # auto-uses the project .venv when present; falls back to global env
 
 # Flet edition
 cd flet
@@ -49,7 +51,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Starts with no window, resident in the system tray (background). `pyqt/` and `fluent/` can also be launched by double-clicking `main.pyw` (no console window). Dev/test dependencies live in each directory's `requirements-dev.txt`. The Flet edition downloads the Flutter desktop client on first run (`~/.flet`, needs network).
+Starts with no window, resident in the system tray (background). `pyqt/` and `fluent/` can also be launched by double-clicking `main.pyw` (no console window). The `fluent/` `main.pyw` probes for the project venv: when run outside it, it relaunches itself with `.venv\Scripts\pythonw.exe`, avoiding startup failures caused by PyQt5/PyQt6 Fluent distributions overwriting each other in the global environment. Dev/test dependencies live in each directory's `requirements-dev.txt`. The Flet edition downloads the Flutter desktop client on first run (`~/.flet`, needs network).
 
 ## Tray usage
 

@@ -4,7 +4,31 @@
     python main.pyw          # 启动 Fluent 版本主窗口
 """
 import os
+import subprocess
 import sys
+
+
+def _relaunch_in_venv() -> None:
+    """不在项目 venv 中运行时, 自动改用 venv 的 pythonw 重启自身.
+
+    双击 main.pyw 时 Windows 用全局 python 解释器运行 (.pyw 文件关联),
+    而全局环境可能装有其他 PyQt/Fluent 版本 (PyQt5 系与 PyQt6 系共用
+    同名顶层包 qfluentwidgets/qframelesswindow, 互相覆盖), 导致绑定
+    校验失败、启动即退. 这里强制切到项目 venv, 与全局环境彻底隔离.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    venv_pythonw = os.path.join(here, ".venv", "Scripts", "pythonw.exe")
+    if not os.path.exists(venv_pythonw):
+        return  # 无 venv: 按原逻辑跑全局 (依赖校验会给出提示)
+    # sys.prefix 指向 venv 目录 => 已在 venv 内, 无需重启
+    venv_dir = os.path.normcase(os.path.realpath(os.path.join(here, ".venv")))
+    if os.path.normcase(os.path.realpath(sys.prefix)) == venv_dir:
+        return
+    subprocess.Popen([venv_pythonw, __file__], cwd=here)
+    sys.exit(0)
+
+
+_relaunch_in_venv()
 
 
 def _check_deps() -> None:

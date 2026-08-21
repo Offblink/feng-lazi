@@ -36,10 +36,12 @@ cd pyqt
 pip install -r requirements.txt
 python main.pyw
 
-# Fluent 版
+# Fluent 版（建议先建项目 venv，与全局其他 PyQt/Fluent 版本隔离）
 cd fluent
-pip install -r requirements.txt
-python main.pyw
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt   # Windows
+# .venv/bin/pip install -r requirements.txt     # macOS / Linux
+python main.pyw    # 存在 .venv 时自动切换使用；无则退回全局环境
 
 # Flet 版
 cd flet
@@ -47,7 +49,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-启动后无窗口，直接驻留系统托盘（后台）。`pyqt/`、`fluent/` 双击 `main.pyw` 亦可（无控制台窗口）。开发/测试依赖见各目录 `requirements-dev.txt`。Flet 版首次运行会下载 Flutter 桌面客户端（`~/.flet`，需联网）。
+启动后无窗口，直接驻留系统托盘（后台）。`pyqt/`、`fluent/` 双击 `main.pyw` 亦可（无控制台窗口）。`fluent/` 的 `main.pyw` 内置 venv 探测：不在项目 venv 中运行时自动改用 `.venv\Scripts\pythonw.exe` 重启自身，避免全局环境里 PyQt5/PyQt6 两套 Fluent 组件互相覆盖导致的启动失败。开发/测试依赖见各目录 `requirements-dev.txt`。Flet 版首次运行会下载 Flutter 桌面客户端（`~/.flet`，需联网）。
 
 ## 托盘操作
 
